@@ -1,10 +1,5 @@
-import os
-from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
-
-load_dotenv()
-
-MONGO_URL = os.getenv("MONGO_URL")
+from .config import MONGO_URL, DB_NAME
 
 client = AsyncIOMotorClient(MONGO_URL)
-db = client.my_database   # change to your DB name
+db = client[DB_NAME]

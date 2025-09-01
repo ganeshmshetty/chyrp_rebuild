@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+motor            # async MongoDB driver
+pydantic
+python-dotenv
+passlib[bcrypt]  # password hashing
+pyjwt
+python-multipart # file uploads
+aiofiles         # to save uploaded files locally

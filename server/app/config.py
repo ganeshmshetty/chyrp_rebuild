@@ -3,6 +3,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-MONGO_URL = os.getenv("MONGO_URL")
-DB_NAME = os.getenv("DB_NAME", "my_blog")
-JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret")
+MONGO_URL = os.getenv("MONGO_URI")
+JWT_SECRET = os.getenv("JWT_SECRET")
+DB_NAME = os.getenv("DB_NAME", "chryp-rebuild")

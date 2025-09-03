@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routers import posts, auth, users, comments
 
-app = FastAPI(title="Chyrp-lite")
+app = FastAPI(title="chyrp-rebuild")
 
 app.add_middleware(
     CORSMiddleware,

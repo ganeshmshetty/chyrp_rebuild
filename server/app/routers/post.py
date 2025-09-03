@@ -1,46 +1,67 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from ..db import db
 from ..models.pydantic_models import PostCreate, PostOut
 from ..utils.security import get_current_user
 from datetime import datetime
-import bson
+from bson import ObjectId
+from bson.errors import InvalidId
+from typing import List
 
 
 router = APIRouter()
 
 
-@router.post("/", response_model=PostOut)
-async def create_post(payload: PostCreate, current=Depends(get_current_user)):
-author_id = current.get("_id")
-doc = payload.dict()
-doc.update({"author_id": bson.ObjectId(author_id), "created_at": datetime.utcnow()})
-res = await db.posts.insert_one(doc)
-inserted = await db.posts.find_one({"_id": res.inserted_id})
-inserted["id"] = str(inserted.get("_id"))
-# convert author_id to str
-inserted["author_id"] = str(inserted.get("author_id"))
-return inserted
+def format_post(doc: dict) -> dict:
+    """Helper function to format post document"""
+    if doc:
+        doc["id"] = str(doc.get("_id"))
+        if doc.get("author_id"):
+            doc["author_id"] = str(doc["author_id"])
+        doc.pop("_id", None)
+    return doc
 
 
-@router.get("/", response_model=list[PostOut])
+@router.post("/", response_model=PostOut, status_code=status.HTTP_201_CREATED)
+async def create_post(payload: PostCreate, current_user=Depends(get_current_user)):
+    """Create a new post"""
+    author_id = current_user.get("_id")
+    doc = payload.dict()
+    doc.update({
+        "author_id": ObjectId(author_id), 
+        "created_at": datetime.utcnow()
+    })
+    
+    result = await db.posts.insert_one(doc)
+    created_post = await db.posts.find_one({"_id": result.inserted_id})
+    
+    return format_post(created_post)
+
+
+@router.get("/", response_model=List[PostOut])
 async def list_posts():
-docs = await db.posts.find({}).sort("created_at", -1).to_list(100)
-out = []
-for d in docs:
-d["id"] = str(d.get("_id"))
-d["author_id"] = str(d.get("author_id")) if d.get("author_id") else ""
-out.append(d)
-return out
+    """List all posts sorted by creation date (newest first)"""
+    cursor = db.posts.find({}).sort("created_at", -1).limit(100)
+    docs = await cursor.to_list(length=100)
+    
+    return [format_post(doc) for doc in docs]
 
 
 @router.get("/{post_id}", response_model=PostOut)
 async def get_post(post_id: str):
-try:
-oid = bson.ObjectId(post_id)
-except Exception:
-raise HTTPException(status_code=404, detail="Not found")
-doc = await db.posts.find_one({"_id": oid})
-if not doc:
-raise HTTPException(status_code=404, detail="Not found")
-doc["id"] = str(doc.get("_id"))
-return doc
+    """Get a specific post by ID"""
+    try:
+        object_id = ObjectId(post_id)
+    except InvalidId:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Invalid post ID"
+        )
+    
+    doc = await db.posts.find_one({"_id": object_id})
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Post not found"
+        )
+    
+    return format_post(doc)
